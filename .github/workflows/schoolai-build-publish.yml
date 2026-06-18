@@ -1,0 +1,34 @@
+name: SchoolAI Build and Publish
+
+# Builds the SchoolAI fork image and publishes it to our Artifact Registry so
+# the webapp (apps/web RAG pipeline) can run a build.
+#
+# Mirrors the webapp build pattern (see web-app:
+# .github/workflows/webapp-staging-deploy.yml -> build_webapp) by reusing the
+# shared SchoolAI/github-actions-workflows sai-docker-build.yaml workflow.
+
+on:
+  workflow_call:
+  # Keep workflow_dispatch so operators can trigger a manual staging deploy
+  # even though `staging-deploy.yml` is now the primary entrypoint on main.
+  workflow_dispatch:
+
+jobs:
+  build_unstructured_api:
+    uses: SchoolAI/github-actions-workflows/.github/workflows/sai-docker-build.yaml@main
+    with:
+      # amd64 only — matches the cluster nodeSelector (kubernetes.io/arch: amd64)
+      # and how the other SchoolAI services build.
+      build_amd_enabled: true
+      build_arm_enabled: false
+      docker_build_amd_runs_on: sai-7cpu-26gb-amd-perf
+      # Produces images at:
+      #   us-central1-docker.pkg.dev/schoolai-global/docker/unstructured-api:<tag>
+      docker_repo: us-central1-docker.pkg.dev/schoolai-global/docker
+      docker_image_name: unstructured-api
+      dockerfile: ./Dockerfile
+      docker_build_args: |
+        PIPELINE_PACKAGE=general
+      push_image: true
+    secrets:
+      GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY_STAGING }}
